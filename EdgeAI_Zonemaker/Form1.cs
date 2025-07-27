@@ -2,14 +2,14 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
+using System.Net.NetworkInformation;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-
-using System.Diagnostics;
-using System.Runtime.InteropServices;
 
 
 namespace EdgeAI_Zonemaker
@@ -45,6 +45,105 @@ namespace EdgeAI_Zonemaker
         [DllImport("user32.dll")]
         static extern IntPtr GetForegroundWindow();
 
+        // 클래스, 프로세스, 창 제목, 크기로 필터링하기
+        [DllImport("user32.dll", SetLastError = true)]
+        static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+
+        private bool IsFilteredClass(IntPtr hWnd)
+        {
+            StringBuilder className = new StringBuilder(256);
+            GetClassName(hWnd, className, className.Capacity);
+            string cls = className.ToString();
+
+            string[] filteredClassKeywords = {
+        "Shell_TrayWnd", "DV2ControlHost", "ApplicationFrameWindow", "Windows.UI.Core.CoreWindow",
+        "TextInputHost", "WindowsInternal_ComposableShell", "ImmersiveLauncher" };
+
+            return filteredClassKeywords.Any(keyword => cls.Contains(keyword));
+        }
+
+        private bool IsFilteredProcess(IntPtr hWnd)
+        {
+            GetWindowThreadProcessId(hWnd, out uint pid);
+            try
+            {
+                var process = Process.GetProcessById((int)pid);
+                string processName = process.ProcessName;
+
+                string[] filteredProcessKeywords = {
+            "ApplicationFrameHost", "SystemSettings", "ShellExperienceHost", "SearchUI"
+        };
+
+                return filteredProcessKeywords.Any(keyword => processName.Contains(keyword));
+            }
+            catch
+            {
+                return true; // 프로세스를 가져올 수 없는 경우에도 필터링
+            }
+        }
+
+        private bool IsFilteredTitle(string title)
+        {
+            if (string.IsNullOrWhiteSpace(title)) return true; // 무제목 창은 제외
+
+            string[] filteredTitleKeywords = {
+        "Windows 입력환경",
+        "설정",                    // 예: "TextInputHost - 설정"
+        "ApplicationFrameHost",
+        "Search",                 // 예: "SearchUI"
+        "UWP",                    // UWP 관련 앱
+        "LockApp",
+        "시스템",                 // 예: "시스템 설정"
+        "보안 센터",
+        "로그인 화면"
+    };
+
+            return filteredTitleKeywords.Any(keyword => title.Contains(keyword));
+        }
+
+        [DllImport("user32.dll", SetLastError = true)]
+        static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct RECT
+        {
+            public int Left, Top, Right, Bottom;
+            public int Width => Right - Left;
+            public int Height => Bottom - Top;
+        }
+
+        private bool IsReasonableSize(IntPtr hWnd)
+        {
+            if (!GetWindowRect(hWnd, out RECT rect)) return false;
+            return rect.Width > 100 && rect.Height > 100; // 최소 크기 조건
+        }
+
+
+        // IsAltTabWindow 함수로 필터링하기 -> 문제없긴 한데 유의미한 필터링에는 실패.
+        [DllImport("user32.dll")]
+        static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
+
+        [DllImport("user32.dll")]
+        static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+        const uint GW_OWNER = 4;
+        const int GWL_EXSTYLE = -20;
+        const int WS_EX_TOOLWINDOW = 0x00000080;
+
+        private bool IsAltTabWindow(IntPtr hWnd)
+        {
+            if (!IsWindowVisible(hWnd))
+                return false;
+
+            IntPtr owner = GetWindow(hWnd, GW_OWNER);
+            int exStyle = GetWindowLong(hWnd, GWL_EXSTYLE);
+
+            bool hasNoOwner = owner == IntPtr.Zero;
+            bool isNotToolWindow = (exStyle & WS_EX_TOOLWINDOW) == 0;
+
+            return hasNoOwner && isNotToolWindow;
+        }
+
         // 상수 정의(선언)
         private const uint SWP_SHOWWINDOW = 0x0040;
         private static readonly IntPtr HWND_TOP = new IntPtr(0);
@@ -63,58 +162,53 @@ namespace EdgeAI_Zonemaker
         // 6. 현재 화면에 있는 창들을 가져오기(창 목록 수집)
         private List<IntPtr> GetTopWindows(int count)
         {
-            /*
             List<IntPtr> windows = new List<IntPtr>();
             IntPtr myHandle = this.Handle;
 
             EnumWindows((hWnd, lParam) =>
             {
-                
-                // 내 창은 제외
-                if (hWnd == myHandle || !IsWindowVisible(hWnd))
-                    return true;
+                if (!IsWindowVisible(hWnd)) return true;
+                if (hWnd == myHandle) return true;
 
-                // 프로세스 이름 가져오기
-                GetWindowThreadProcessId(hWnd, out uint pid);
-                try
-                {
-                    Process proc = Process.GetProcessById((int)pid);
-                    if (ignoreList.Contains(proc.ProcessName))
-                        return true; // 건너뛰기
-                }
-                catch
-                {
-                    return true; // 예외 시 건너뛰기
-                }
+                // 창 제목 추출
+                StringBuilder title = new StringBuilder(256);
+                GetWindowText(hWnd, title, title.Capacity);
+                string titleText = title.ToString();
+
+                // 필터링 조건
+                if (IsFilteredTitle(titleText)) return true;
+                if (IsFilteredClass(hWnd)) return true;
+                if (IsFilteredProcess(hWnd)) return true;
 
                 windows.Add(hWnd);
                 return true;
 
             }, IntPtr.Zero);
 
-            return windows.Take(count).ToList(); */
-            
+            return windows.Take(count).ToList();
+            /*
             List<IntPtr> windows = new List<IntPtr>();
-            IntPtr myHandle = this.Handle; // 현재 내 창(폼)의 핸들
+            IntPtr myHandle = this.Handle;
 
             EnumWindows((hWnd, lParam) =>
             {
+                if (hWnd == myHandle) return true; // 내 창 제외
                 if (!IsWindowVisible(hWnd)) return true;
 
-                if (hWnd == myHandle) return true; // 내 창은 제외
+                // Alt+Tab 창이 아니면 제외
+                if (!IsAltTabWindow(hWnd)) return true;
 
-                StringBuilder buffer = new StringBuilder(256);
-                GetWindowText(hWnd, buffer, buffer.Capacity);
-                if (!string.IsNullOrWhiteSpace(buffer.ToString()))
-                {
-                    windows.Add(hWnd);
-                }
+                // 창 제목 확인
+                StringBuilder title = new StringBuilder(256);
+                GetWindowText(hWnd, title, title.Capacity);
+                if (string.IsNullOrWhiteSpace(title.ToString())) return true;
 
+                windows.Add(hWnd);
                 return true;
             }, IntPtr.Zero);
 
-            // 최신 순 정렬은 어려우므로 일단 최근 앞쪽만 잘라서 사용
-            return windows.Take(count).ToList(); 
+            return windows.Take(count).ToList();
+            */
         }
 
         private bool isLiveUpdateEnabled = true;
@@ -237,6 +331,24 @@ namespace EdgeAI_Zonemaker
 
                 StringBuilder sb = new StringBuilder(length + 1);
                 GetWindowText(hWnd, sb, sb.Capacity);
+                string title = sb.ToString();
+
+                
+                // 🔴 제목 필터링
+                if (IsFilteredTitle(title))
+                    return true;
+
+                // 🔴 클래스 필터링
+                if (IsFilteredClass(hWnd))
+                    return true;
+
+                // 🔴 프로세스명 필터링
+                if (IsFilteredProcess(hWnd))
+                    return true;
+                
+
+                if (!IsAltTabWindow(hWnd)) // Alt+Tab 창이 아니면 제외
+                    return true;
 
                 uint processId;
                 GetWindowThreadProcessId(hWnd, out processId);
@@ -244,7 +356,6 @@ namespace EdgeAI_Zonemaker
                 try
                 {
                     Process proc = Process.GetProcessById((int)processId);
-                    string title = sb.ToString();
                     listBox1.Items.Add($"{proc.ProcessName} - {title}");
                 }
                 catch { }
