@@ -159,6 +159,7 @@ namespace EdgeAI_Zonemaker
             //"SearchApp"                   // Windows 검색 UI
         };
 
+
         // 6. 현재 화면에 있는 창들을 가져오기(창 목록 수집)
         private List<IntPtr> GetTopWindows(int count)
         {
@@ -184,6 +185,9 @@ namespace EdgeAI_Zonemaker
                 return true;
 
             }, IntPtr.Zero);
+
+            // ML 정렬 적용
+            //windows = MLHelper.SortWindowsByPriority(windows);
 
             return windows.Take(count).ToList();
             /*
@@ -234,11 +238,15 @@ namespace EdgeAI_Zonemaker
 
             if (count == 2)
             {
+                /*
                 int w = screenWidth / 2;
                 for (int i = 0; i < 2; i++)
                 {
                     SetWindowPos(windows[i], HWND_TOP, i * w, 0, w, screenHeight, SWP_SHOWWINDOW);
                 }
+                */
+                SetWindowPos(windows[1], HWND_TOP, 0, 0, screenWidth / 2, screenHeight, SWP_SHOWWINDOW);
+                SetWindowPos(windows[0], HWND_TOP, screenWidth / 2, 0, screenWidth / 2, screenHeight, SWP_SHOWWINDOW);
             }
             else if (count == 3)
             {
@@ -247,13 +255,13 @@ namespace EdgeAI_Zonemaker
                 int rightHeight = screenHeight / 2;
 
                 // 창 1: 좌측 전체
-                SetWindowPos(windows[0], HWND_TOP, 0, 0, leftWidth, screenHeight, SWP_SHOWWINDOW);
+                SetWindowPos(windows[1], HWND_TOP, 0, 0, leftWidth, screenHeight, SWP_SHOWWINDOW);
 
                 // 창 2: 우측 상단
-                SetWindowPos(windows[1], HWND_TOP, leftWidth, 0, rightWidth, rightHeight, SWP_SHOWWINDOW);
+                SetWindowPos(windows[2], HWND_TOP, leftWidth, 0, rightWidth, rightHeight, SWP_SHOWWINDOW);
 
                 // 창 3: 우측 하단
-                SetWindowPos(windows[2], HWND_TOP, leftWidth, rightHeight, rightWidth, screenHeight - rightHeight, SWP_SHOWWINDOW);
+                SetWindowPos(windows[0], HWND_TOP, leftWidth, rightHeight, rightWidth, screenHeight - rightHeight, SWP_SHOWWINDOW);
             }
             else if (count == 4)
             {
@@ -263,16 +271,16 @@ namespace EdgeAI_Zonemaker
                 // 비율 1:2:2:4 → 9등분 기준
 
                 // 창 1: 좌상단 (1칸)
-                SetWindowPos(windows[0], HWND_TOP, 0, 0, colWidth, rowHeight, SWP_SHOWWINDOW);
+                SetWindowPos(windows[2], HWND_TOP, 0, 0, colWidth, rowHeight, SWP_SHOWWINDOW);
 
                 // 창 2: 좌하단 (2칸)
                 SetWindowPos(windows[1], HWND_TOP, 0, rowHeight, colWidth, screenHeight - rowHeight, SWP_SHOWWINDOW);
 
                 // 창 3: 우상단 (2칸)
-                SetWindowPos(windows[2], HWND_TOP, colWidth, 0, screenWidth - colWidth, rowHeight, SWP_SHOWWINDOW);
+                SetWindowPos(windows[3], HWND_TOP, colWidth, 0, screenWidth - colWidth, rowHeight, SWP_SHOWWINDOW);
 
                 // 창 4: 우하단 (4칸)
-                SetWindowPos(windows[3], HWND_TOP, colWidth, rowHeight, screenWidth - colWidth, screenHeight - rowHeight, SWP_SHOWWINDOW);
+                SetWindowPos(windows[0], HWND_TOP, colWidth, rowHeight, screenWidth - colWidth, screenHeight - rowHeight, SWP_SHOWWINDOW);
             }
         }
 
@@ -453,11 +461,15 @@ namespace EdgeAI_Zonemaker
             // 분할 로직은 이전과 동일
             if (count == 2)
             {
+                /*
                 int w = screenWidth / 2;
                 for (int i = 0; i < 2; i++)
                 {
                     SetWindowPos(windows[i], HWND_TOP, i * w, 0, w, screenHeight, SWP_SHOWWINDOW);
                 }
+                */
+                SetWindowPos(windows[1], HWND_TOP, 0, 0, screenWidth / 2, screenHeight, SWP_SHOWWINDOW);
+                SetWindowPos(windows[0], HWND_TOP, screenWidth / 2, 0, screenWidth / 2, screenHeight, SWP_SHOWWINDOW);
             }
             else if (count == 3)
             {
@@ -466,13 +478,13 @@ namespace EdgeAI_Zonemaker
                 int rightHeight = screenHeight / 2;
 
                 // 창 1: 좌측 전체
-                SetWindowPos(windows[0], HWND_TOP, 0, 0, leftWidth, screenHeight, SWP_SHOWWINDOW);
+                SetWindowPos(windows[1], HWND_TOP, 0, 0, leftWidth, screenHeight, SWP_SHOWWINDOW);
 
                 // 창 2: 우측 상단
-                SetWindowPos(windows[1], HWND_TOP, leftWidth, 0, rightWidth, rightHeight, SWP_SHOWWINDOW);
+                SetWindowPos(windows[2], HWND_TOP, leftWidth, 0, rightWidth, rightHeight, SWP_SHOWWINDOW);
 
                 // 창 3: 우측 하단
-                SetWindowPos(windows[2], HWND_TOP, leftWidth, rightHeight, rightWidth, screenHeight - rightHeight, SWP_SHOWWINDOW);
+                SetWindowPos(windows[0], HWND_TOP, leftWidth, rightHeight, rightWidth, screenHeight - rightHeight, SWP_SHOWWINDOW);
             }
             else if (count == 4)
             {
@@ -482,16 +494,16 @@ namespace EdgeAI_Zonemaker
                 // 비율 1:2:2:4 → 9등분 기준
 
                 // 창 1: 좌상단 (1칸)
-                SetWindowPos(windows[0], HWND_TOP, 0, 0, colWidth, rowHeight, SWP_SHOWWINDOW);
+                SetWindowPos(windows[2], HWND_TOP, 0, 0, colWidth, rowHeight, SWP_SHOWWINDOW);
 
                 // 창 2: 좌하단 (2칸)
                 SetWindowPos(windows[1], HWND_TOP, 0, rowHeight, colWidth, screenHeight - rowHeight, SWP_SHOWWINDOW);
 
                 // 창 3: 우상단 (2칸)
-                SetWindowPos(windows[2], HWND_TOP, colWidth, 0, screenWidth - colWidth, rowHeight, SWP_SHOWWINDOW);
+                SetWindowPos(windows[3], HWND_TOP, colWidth, 0, screenWidth - colWidth, rowHeight, SWP_SHOWWINDOW);
 
                 // 창 4: 우하단 (4칸)
-                SetWindowPos(windows[3], HWND_TOP, colWidth, rowHeight, screenWidth - colWidth, screenHeight - rowHeight, SWP_SHOWWINDOW);
+                SetWindowPos(windows[0], HWND_TOP, colWidth, rowHeight, screenWidth - colWidth, screenHeight - rowHeight, SWP_SHOWWINDOW);
             }
 
             // 현재 상태 기억
