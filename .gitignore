@@ -1,0 +1,5 @@
+# 용량이 큰 json, pth, onnx 파일 제외
+
+*.json
+*.pth
+*.onnx
